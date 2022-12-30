@@ -2,17 +2,12 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
-
-const char *ssid = "Lulu3";
-const char *password = "Lulu1201";
-
-String newHostname = "ESPDisplay";
+#include "../lib/config.h"
 
 void setup(void)
 {
     Serial.begin(9600);
 
-    WiFi.hostname(newHostname.c_str());
     WiFi.begin(ssid, password);
     Serial.println("Connecting");
     while (WiFi.status() != WL_CONNECTED)
