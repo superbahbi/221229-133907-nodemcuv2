@@ -9,9 +9,17 @@
 
 #include "../lib/config.h"
 #include "../lib/size.h"
+enum position
+{
+    left,
+    center,
+    right,
+    top
+};
 
-void print_text(byte x_pos, byte y_pos, char *text, byte text_size, uint16_t color);
+void print_text(byte x_pos, byte y_pos, char *text, byte text_size, uint16_t color, byte position);
 char *intMonthToText(int num);
+
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 
 void setup(void)
@@ -34,7 +42,6 @@ void setup(void)
     tft.setRotation(2);
 
     configTime(timezone * 3600, dst * 3600, "pool.ntp.org", "time.nist.gov");
-    Serial.println("\nWaiting for time");
     while (!time(nullptr))
     {
         Serial.print(".");
@@ -45,7 +52,7 @@ void setup(void)
 
 void loop()
 {
-    time_t t = time(NULL);
+    time_t t = time(nullptr);
     struct tm tm = *localtime(&t);
 
     tft.fillScreen(ST77XX_WHITE);
@@ -67,7 +74,7 @@ void loop()
     strcat(fullyear, year);
 
     // Print fullyear string
-    print_text(20, 5, fullyear, size::small, ST77XX_BLACK);
+    // print_text(20, 5, fullyear, size::small, ST77XX_BLACK, position::center);
 
     char hour[4];
     itoa(tm.tm_hour, hour, 10);
@@ -79,15 +86,43 @@ void loop()
     strcpy(time, hour);
     strcat(time, ":");
     strcat(time, minute);
-    print_text(20, 15, time, size::medium, ST77XX_BLACK);
-    print_text(20, 50, "TEST", size::medium, ST77XX_BLACK);
-    print_text(20, 75, "TEST", size::small, ST77XX_BLACK);
+    print_text(0, 15, time, size::medium, ST77XX_BLACK, position::top);
+    print_text(0, 15, time, size::medium, ST77XX_BLACK, position::center);
+    print_text(20, 50, "TEST", size::medium, ST77XX_BLACK, position::left);
+    print_text(20, 75, "TEST", size::small, ST77XX_BLACK, position::right);
 
     delay(timerDelay);
 }
 
-void print_text(byte x_pos, byte y_pos, char *text, byte text_size, uint16_t color)
+void print_text(byte x_pos, byte y_pos, char *text, byte text_size, uint16_t color, byte position)
 {
+    if (position == position::center)
+    {
+        int16_t x1, y1;
+        uint16_t w, h;
+        tft.getTextBounds(text, x_pos, y_pos, &x1, &y1, &w, &h);
+        Serial.print("x1: ");
+        Serial.print(x1);
+        Serial.print(" y1: ");
+        Serial.print(y1);
+        Serial.print(" w: ");
+        Serial.print(w);
+        Serial.print(" h: ");
+        Serial.println(h);
+
+        x_pos = (128 - w / 2);
+    }
+    else if (position == position::right)
+    {
+        int16_t x1, y1;
+        uint16_t w, h;
+        tft.getTextBounds(text, x_pos, y_pos, &x1, &y1, &w, &h);
+        x_pos = (tft.width() - w);
+    }
+    else if (position == position::left)
+    {
+        x_pos = 0;
+    }
     tft.setCursor(x_pos, y_pos);
     tft.setTextSize(text_size);
     tft.setTextColor(color);
