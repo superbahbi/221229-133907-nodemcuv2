@@ -1,5 +1,10 @@
 const char *ssid = "";
 const char *password = "";
+
 #define TFT_CS D2
 #define TFT_RST D2
 #define TFT_DC D4
+unsigned long timerDelay = 5000;
+
+int timezone = -8; // Pacific Standard Time Los Angeles UTC-8
+int dst = 0;
