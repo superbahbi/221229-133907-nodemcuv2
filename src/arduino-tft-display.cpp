@@ -6,6 +6,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
 #include <time.h>
+#include <Arduino_JSON.h>
 
 #include "../lib/config.h"
 #include "../lib/size.h"
@@ -18,8 +19,14 @@ void draw_background();
 void print_hour(uint8_t hours, uint16_t color);
 void print_min(uint8_t minutes, uint16_t color);
 void print_ampm(uint8_t seconds, uint16_t color);
+String httpGETRequest(const char *serverName);
+void print_weather_data(int x_pos, int y_pos, int color, String data, char *units);
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+
+String jsonBuffer;
+JSONVar weather_data;
+String serverPath = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey + "&units=" + units;
 
 void setup(void)
 {
@@ -51,33 +58,78 @@ void setup(void)
     print_labels();
 
     delay(1000);
+    Serial.println("Timer set to 60 seconds (timerDelay variable), it will take 60 seconds before publishing the first reading.");
 }
 
 void loop()
 {
-    time_t t = time(nullptr);
-    struct tm tm = *localtime(&t);
+    if ((millis() - lastTime) > timerDelay)
+    {
+        // Check WiFi connection status
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            jsonBuffer = httpGETRequest(serverPath.c_str());
+            // Serial.println(jsonBuffer);
+            weather_data = JSON.parse(jsonBuffer);
 
-    tft.invertDisplay(false);
+            // JSON.typeof(jsonVar) can be used to get the type of the var
+            if (JSON.typeof(weather_data) == "undefined")
+            {
+                Serial.println("Parsing input failed!");
+                return;
+            }
 
-    tft.fillRect(15, 20, 100, 15, ST7735_BLACK);
+            Serial.print("Pressure: ");
+            Serial.println(weather_data["main"]["pressure"]);
+            Serial.print("Wind Speed: ");
+            Serial.println(weather_data["wind"]["speed"]);
 
-    print_hour(tm.tm_hour, ST7735_BLUE);
-    print_min(tm.tm_min, ST7735_BLUE);
-    print_ampm(tm.tm_hour, ST7735_BLUE);
+            // Inside temp data
+            String temp = JSON.stringify(int(weather_data["main"]["temp"]));
+            print_weather_data(55, 55, ST7735_CYAN, temp, "F");
 
-    tft.setTextColor(ST7735_BLUE);
-    tft.setTextSize(1);
-    tft.setCursor(15, 40);
-    char fullYear[50];
-    strcpy(fullYear, intMonthToText(tm.tm_mon + 1));
-    strcat(fullYear, " ");
-    strcat(fullYear, String(tm.tm_mday).c_str());
-    strcat(fullYear, ", ");
-    strcat(fullYear, String(tm.tm_year + 1900).c_str());
-    tft.println(fullYear);
-    delay(timerDelay);
+            // Humid data
+            String humid = JSON.stringify(weather_data["main"]["humidity"]);
+            print_weather_data(95, 70, ST7735_CYAN, humid, "%");
+
+            // Longitude data
+            String lon = JSON.stringify(weather_data["coord"]["lon"]);
+            print_weather_data(33, 85, ST7735_CYAN, lon, "");
+
+            // Latitude data
+            String lat = JSON.stringify(weather_data["coord"]["lat"]);
+            print_weather_data(33, 100, ST7735_CYAN, lat, "");
+        }
+        else
+        {
+            Serial.println("WiFi Disconnected");
+        }
+        time_t t = time(nullptr);
+        struct tm tm = *localtime(&t);
+
+        tft.invertDisplay(false);
+
+        tft.fillRect(15, 20, 100, 15, ST7735_BLACK);
+
+        print_hour(tm.tm_hour, ST7735_BLUE);
+        print_min(tm.tm_min, ST7735_BLUE);
+        print_ampm(tm.tm_hour, ST7735_BLUE);
+
+        tft.setTextColor(ST7735_BLUE);
+        tft.setTextSize(1);
+        tft.setCursor(15, 40);
+        char fullYear[50];
+        strcpy(fullYear, intMonthToText(tm.tm_mon + 1));
+        strcat(fullYear, " ");
+        strcat(fullYear, String(tm.tm_mday).c_str());
+        strcat(fullYear, ", ");
+        strcat(fullYear, String(tm.tm_year + 1900).c_str());
+        tft.println(fullYear);
+
+        lastTime = millis();
+    }
 }
+
 void print_labels()
 {
     tft.setTextSize(1);
@@ -95,31 +147,17 @@ void print_labels()
     // Inside temp label
     tft.setTextColor(ST7735_CYAN);
     tft.setCursor(5, 55);
-    tft.println("OUTSIDE:90F");
+    tft.print("OUTSIDE: ");
 
     // Outside temp label
     tft.setTextColor(ST7735_CYAN);
     tft.setCursor(5, 70);
-    tft.println("INSIDE:90F");
+    tft.println("INSIDE: ??F");
 
     // Humidity label
     tft.setTextColor(ST7735_CYAN);
     tft.setCursor(90, 55);
     tft.println("HUMID");
-
-    tft.setTextColor(ST7735_CYAN);
-    tft.setCursor(95, 70);
-    tft.println("90%");
-
-    // Longitude label
-    tft.setTextColor(ST7735_CYAN);
-    tft.setCursor(50, 85);
-    tft.println("LONG");
-
-    // Latitude label
-    tft.setTextColor(ST7735_CYAN);
-    tft.setCursor(50, 100);
-    tft.println("LAT");
 
     // Wifi label
     tft.setTextColor(ST7735_CYAN);
@@ -153,12 +191,12 @@ void draw_background()
     tft.drawLine(0, tft.height() - 1, tft.width(), tft.height() - 1, ST7735_WHITE);
 
     tft.drawLine(80, 50, 80, 110, ST7735_WHITE);
-    tft.drawLine(43, 80, 43, 110, ST7735_WHITE);
+    tft.drawLine(30, 80, 30, 110, ST7735_WHITE);
     tft.drawLine(0, 50, 128, 50, ST7735_WHITE);
     tft.drawLine(0, 65, 80, 65, ST7735_WHITE);
     tft.drawLine(0, 80, 128, 80, ST7735_WHITE);
     tft.drawLine(0, 110, 128, 110, ST7735_WHITE);
-    tft.drawLine(43, 95, 138, 95, ST7735_WHITE);
+    tft.drawLine(30, 95, 138, 95, ST7735_WHITE);
 }
 
 void print_ampm(uint8_t h, uint16_t color)
@@ -270,4 +308,42 @@ char *intMonthToText(int num)
         return "Error";
         break;
     }
+}
+
+String httpGETRequest(const char *serverName)
+{
+    WiFiClient client;
+    HTTPClient http;
+
+    // Your Domain name with URL path or IP address with path
+    http.begin(client, serverName);
+
+    // Send HTTP POST request
+    int httpResponseCode = http.GET();
+
+    String payload = "{}";
+
+    if (httpResponseCode > 0)
+    {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        payload = http.getString();
+    }
+    else
+    {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+    }
+    // Free resources
+    http.end();
+
+    return payload;
+}
+
+void print_weather_data(int x_pos, int y_pos, int color, String data, char *units)
+{
+    tft.setTextColor(ST7735_CYAN);
+    tft.setCursor(x_pos, y_pos);
+    tft.print(data);
+    tft.print(units);
 }
