@@ -69,14 +69,11 @@ void loop()
 
     if ((millis() - lastTime) > timerDelay)
     {
-        // Check WiFi connection status
         if (WiFi.status() == WL_CONNECTED)
         {
             jsonBuffer = httpGETRequest(serverPath.c_str());
-            // Serial.println(jsonBuffer);
             weather_data = JSON.parse(jsonBuffer);
 
-            // JSON.typeof(jsonVar) can be used to get the type of the var
             if (JSON.typeof(weather_data) == "undefined")
             {
                 Serial.println("Parsing input failed!");
@@ -170,71 +167,6 @@ void draw_background()
     tft.drawLine(0, 80, 128, 80, ST7735_WHITE);
     tft.drawLine(0, 110, 128, 110, ST7735_WHITE);
     tft.drawLine(26, 95, 138, 95, ST7735_WHITE);
-}
-
-void print_ampm(uint8_t h, uint16_t color)
-{
-
-    tft.setTextColor(color);
-    tft.setTextSize(2);
-    tft.setCursor(85, 20);
-    if (h < 13)
-    {
-        tft.println("AM");
-    }
-    else
-    {
-        tft.println("PM");
-    }
-}
-
-void print_min(uint8_t m, uint16_t color)
-{
-
-    tft.setTextColor(color);
-    tft.setTextSize(2);
-    // print colon followed by minutes
-    tft.setCursor(45, 20);
-    tft.println(":");
-
-    if (m > 9)
-    {
-        tft.setCursor(55, 20);
-        tft.println(m);
-    }
-
-    else
-    {
-        tft.setCursor(55, 20);
-        tft.println("0");
-        tft.setCursor(67, 20);
-        tft.println(m);
-    }
-}
-
-void print_hour(uint8_t h, uint16_t color)
-{
-    if (h > 12)
-    {
-        h = h - 12;
-    }
-
-    tft.setTextColor(color);
-    tft.setTextSize(2);
-    // print hour
-
-    if (h > 9)
-    {
-        tft.setCursor(25, 20);
-        tft.println(h);
-    }
-    else
-    {
-        tft.setCursor(20, 20);
-        tft.println("0");
-        tft.setCursor(35, 20);
-        tft.println(h);
-    }
 }
 
 String intMonthToText(int num)
