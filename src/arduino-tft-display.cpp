@@ -64,8 +64,6 @@ void setup(void)
 
 void loop()
 {
-    time_t t = time(nullptr);
-    struct tm tm = *localtime(&t);
 
     if ((millis() - lastTime) > timerDelay)
     {
@@ -101,27 +99,33 @@ void loop()
         {
             Serial.println("WiFi Disconnected");
         }
+        time_t t = time(nullptr);
+        struct tm tm = *localtime(&t);
+        // Time data
+        print_time(20, 20, ST7735_BLUE, size::medium, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        // Date data
+        print_date(15, 38, ST7735_BLUE, size::small, tm.tm_mon, tm.tm_mday, tm.tm_year);
+
+        // Wifi data
+        String wifi = JSON.stringify(WiFi.RSSI());
+        print_data(85, 85, ST7735_CYAN, size::small, wifi, "dBm");
     }
-
-    // Time data
-    print_time(20, 20, ST7735_BLUE, size::medium, tm.tm_hour, tm.tm_min, tm.tm_sec);
-    // Date data
-    print_date(15, 38, ST7735_BLUE, size::small, tm.tm_mon, tm.tm_mday, tm.tm_year);
-
-    // Wifi data
-    String wifi = JSON.stringify(WiFi.RSSI());
-    print_data(85, 85, ST7735_CYAN, size::small, wifi, "dBm");
-    delay(1000);
 }
 
 void print_labels()
 {
-    tft.setTextSize(1);
+    // Time label
+    tft.setTextSize(2);
+    tft.setTextColor(ST7735_BLUE);
+    tft.setCursor(40, 20);
+    tft.println(":");
 
+    tft.setTextSize(1);
     // System label
     tft.setTextColor(ST7735_RED);
     tft.setCursor(28, 5);
     tft.println("LUNAR LANDER");
+
     // Inside temp label
     tft.setTextColor(ST7735_CYAN);
     tft.setCursor(5, 55);
@@ -267,10 +271,9 @@ void print_time(int x_pos, int y_pos, int color, int size, int hour, int min, in
         addZeroMin = "0";
     }
 
-    fullTime = addZeroHour + String(hour) + ":" + addZeroMin + String(min) + " " + ampm;
-    tft.setTextSize(size);
-    tft.getTextBounds(fullTime, x_pos, y_pos, &x1, &y1, &w, &h);
-    print_data((tft.width() - w) / 2, y_pos, color, size, fullTime, "");
+    print_data(16, 20, color, size, addZeroHour + String(hour), "");
+    print_data(52, 20, color, size, addZeroMin + String(min), "");
+    print_data(84, 20, color, size, ampm, "");
 }
 
 void print_date(int x_pos, int y_pos, int color, int size, int month, int day, int year)
