@@ -10,6 +10,7 @@
 
 #include "../lib/config.h"
 #include "../lib/size.h"
+#include "../lib/colors.h"
 
 String intMonthToText(int num);
 void oledDisplayCenter(String text);
@@ -19,16 +20,16 @@ void print_hour(uint8_t hours, uint16_t color);
 void print_min(uint8_t minutes, uint16_t color);
 void print_ampm(uint8_t seconds, uint16_t color);
 String httpGETRequest(const char *serverName);
-void print_time(int x_pos, int y_pos, int color, int size, int hour, int min, int sec);
-void print_date(int x_pos, int y_pos, int color, int size, int month, int day, int year);
-void print_data(int x_pos, int y_pos, int color, int size, String data, char *units);
+void print_time(int x_pos, int y_pos, int color, int bgcolor, int size, int hour, int min, int sec);
+void print_date(int x_pos, int y_pos, int color, int bgcolor, int size, int month, int day, int year);
+void print_data(int x_pos, int y_pos, int color, int bgcolor, int size, String data, char *units);
 
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 
 String jsonBuffer;
 JSONVar weather_data;
 String serverPath = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey + "&units=" + units;
-
+int i = 0;
 void setup(void)
 {
     Serial.begin(9600);
@@ -45,7 +46,7 @@ void setup(void)
     Serial.println(WiFi.localIP());
 
     tft.initR(INITR_144GREENTAB);
-    tft.fillScreen(ST7735_BLACK);
+    tft.fillScreen(BLACK);
     tft.setRotation(2);
 
     configTime(timezone * 3600, dst * 3600, "pool.ntp.org", "time.nist.gov");
@@ -64,8 +65,12 @@ void setup(void)
 
 void loop()
 {
-
-    if ((millis() - lastTime) > timerDelay)
+    if (i > 9)
+    {
+        i = 0;
+        tft.fillRect(2, 112, 78, 14, BLACK);
+    }
+    if ((millis() - lastTime) > timerDelay) // loop thru every 60 seconds
     {
         if (WiFi.status() == WL_CONNECTED)
         {
@@ -78,99 +83,122 @@ void loop()
                 return;
             }
 
-            // Inside temp data
-            String temp = JSON.stringify(int(weather_data["main"]["temp"]));
-            print_data(55, 55, ST7735_CYAN, size::small, temp, "F");
+            // Outside temp data
+            String out_temp = JSON.stringify(int(weather_data["main"]["temp"]));
+            print_data(55, 55, WHITE, FIREBRICK, size::small, out_temp, "F");
+
+            // Outside temp data
+            String in_temp = JSON.stringify(int("99"));
+            print_data(70, 55, WHITE, FIREBRICK, size::small, in_temp, "F");
 
             // Humid data
             String humid = JSON.stringify(weather_data["main"]["humidity"]);
-            print_data(95, 70, ST7735_CYAN, size::small, humid, "%");
+            print_data(95, 70, WHITE, PURPLE, size::small, humid, "%");
+
+            // Sattelites data
+            String sattelite = "#27";
+            print_data(5, 100, WHITE, MAGENTA, size::small, sattelite, "");
 
             // Longitude data
             String lon = JSON.stringify(weather_data["coord"]["lon"]);
-            print_data(30, 85, ST7735_CYAN, size::small, lon, "");
+            print_data(30, 85, WHITE, BLUE, size::small, lon, "");
 
             // Latitude data
             String lat = JSON.stringify(weather_data["coord"]["lat"]);
-            print_data(30, 100, ST7735_CYAN, size::small, lat, "");
+            print_data(30, 100, WHITE, BLUE, size::small, lat, "");
             lastTime = millis();
         }
         else
         {
             Serial.println("WiFi Disconnected");
         }
-        time_t t = time(nullptr);
-        struct tm tm = *localtime(&t);
-        // Time data
-        print_time(20, 20, ST7735_BLUE, size::medium, tm.tm_hour, tm.tm_min, tm.tm_sec);
-        // Date data
-        print_date(15, 38, ST7735_BLUE, size::small, tm.tm_mon, tm.tm_mday, tm.tm_year);
-
-        // Wifi data
-        String wifi = JSON.stringify(WiFi.RSSI());
-        print_data(85, 85, ST7735_CYAN, size::small, wifi, "dBm");
     }
+    time_t t = time(nullptr);
+    struct tm tm = *localtime(&t);
+    // Time data
+    print_time(20, 20, WHITE, BLACK, size::medium, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    // Date data
+    print_date(15, 38, WHITE, BLACK, size::small, tm.tm_mon, tm.tm_mday, tm.tm_year);
+
+    // Wifi data
+    String wifi = JSON.stringify(WiFi.RSSI());
+    print_data(85, 85, WHITE, BROWN, size::small, wifi, "dBm");
+
+    // Battery loading test animation
+    tft.fillRect(2 + (i * 8), 112, 6, 14, FORESTGREEN);
+    i++;
+    // Time label blinking animation
+    tft.drawChar(40, 20, ':', WHITE, BLACK, 2);
+    delay(500);
+    tft.drawChar(40, 20, ':', BLACK, BLACK, 2);
+    delay(500);
 }
 
 void print_labels()
 {
-    // Time label
-    tft.setTextSize(2);
-    tft.setTextColor(ST7735_BLUE);
-    tft.setCursor(40, 20);
-    tft.println(":");
-
     tft.setTextSize(1);
     // System label
-    tft.setTextColor(ST7735_RED);
+    tft.setTextColor(WHITE);
     tft.setCursor(28, 5);
     tft.println("LUNAR LANDER");
 
     // Inside temp label
-    tft.setTextColor(ST7735_CYAN);
+    tft.setTextColor(WHITE);
     tft.setCursor(5, 55);
     tft.print("OUTSIDE: ");
 
     // Outside temp label
-    tft.setTextColor(ST7735_CYAN);
+    tft.setTextColor(WHITE);
     tft.setCursor(5, 70);
     tft.println("INSIDE: ??F");
 
     // Humidity label
-    tft.setTextColor(ST7735_CYAN);
+    tft.setTextColor(WHITE);
     tft.setCursor(90, 55);
     tft.println("HUMID");
 
+    // Satellite label
+    tft.setTextColor(WHITE);
+    tft.setCursor(5, 85);
+    tft.println("SAT");
     // Battery label
-    tft.setTextColor(ST7735_CYAN);
+    tft.setTextColor(WHITE);
     tft.setCursor(85, 100);
     tft.println("BATT");
-    // Volt label
-    tft.setTextColor(ST7735_CYAN);
 
-    for (int i = 0; i < 10; i++)
-    {
-        tft.fillRect(2 + (i * 8), 112, 6, 14, ST7735_CYAN);
-    }
+    // Volt label
+    tft.setTextColor(WHITE);
     tft.setCursor(85, 115);
     tft.println("VOLT");
 }
 
 void draw_background()
 {
+    tft.fillRect(0, 0, 128, 15, GOLD);           // System
+    tft.fillRect(0, 50, 80, 15, FIREBRICK);      // Outside temp
+    tft.fillRect(0, 65, 80, 15, DARKGOLDENROD);  // Inside temp
+    tft.fillRect(80, 50, 48, 30, PURPLE);        // Humid
+    tft.fillRect(80, 80, 48, 15, BROWN);         // Wifi
+    tft.fillRect(80, 95, 48, 15, LIMEGREEN);     // Batt
+    tft.fillRect(80, 110, 48, 16, NAVY);         // Volt
+    tft.fillRect(0, 80, 26, 30, ST7735_MAGENTA); // ???
+    tft.fillRect(26, 80, 54, 15, BLUE);          // Longitude
+    tft.fillRect(26, 95, 54, 15, BLUE);          // Latitude
     // Border
-    tft.drawLine(0, 0, 0, tft.height(), ST7735_WHITE);
-    tft.drawLine(0, 0, tft.height(), 0, ST7735_WHITE);
-    tft.drawLine(tft.width() - 1, 0, tft.width() - 1, tft.height(), ST7735_WHITE);
-    tft.drawLine(0, tft.height() - 1, tft.width(), tft.height() - 1, ST7735_WHITE);
+    tft.drawLine(0, 0, 0, tft.height(), WHITE);
+    tft.drawLine(0, 0, tft.height(), 0, WHITE);
+    tft.drawLine(tft.width() - 1, 0, tft.width() - 1, tft.height(), WHITE);
+    tft.drawLine(0, tft.height() - 1, tft.width(), tft.height() - 1, WHITE);
 
-    tft.drawLine(80, 50, 80, 110, ST7735_WHITE);
-    tft.drawLine(26, 80, 26, 110, ST7735_WHITE);
-    tft.drawLine(0, 50, 128, 50, ST7735_WHITE);
-    tft.drawLine(0, 65, 80, 65, ST7735_WHITE);
-    tft.drawLine(0, 80, 128, 80, ST7735_WHITE);
-    tft.drawLine(0, 110, 128, 110, ST7735_WHITE);
-    tft.drawLine(26, 95, 138, 95, ST7735_WHITE);
+    tft.drawLine(80, 50, 80, 128, WHITE);
+    tft.drawLine(26, 80, 26, 110, WHITE);
+
+    tft.drawLine(0, 15, 128, 15, WHITE);
+    tft.drawLine(0, 50, 128, 50, WHITE);
+    tft.drawLine(0, 65, 80, 65, WHITE);
+    tft.drawLine(0, 80, 128, 80, WHITE);
+    tft.drawLine(0, 110, 128, 110, WHITE);
+    tft.drawLine(26, 95, 128, 95, WHITE);
 }
 
 String intMonthToText(int num)
@@ -247,10 +275,8 @@ String httpGETRequest(const char *serverName)
     return payload;
 }
 
-void print_time(int x_pos, int y_pos, int color, int size, int hour, int min, int sec)
+void print_time(int x_pos, int y_pos, int color, int bgcolor, int size, int hour, int min, int sec)
 {
-    int16_t x1, y1;
-    uint16_t w, h;
     String ampm = "AM";
     String addZeroHour = "";
     String addZeroMin = "";
@@ -271,12 +297,13 @@ void print_time(int x_pos, int y_pos, int color, int size, int hour, int min, in
         addZeroMin = "0";
     }
 
-    print_data(16, 20, color, size, addZeroHour + String(hour), "");
-    print_data(52, 20, color, size, addZeroMin + String(min), "");
-    print_data(84, 20, color, size, ampm, "");
+    tft.setTextSize(size);
+    print_data(16, 20, color, bgcolor, size, addZeroHour + String(hour), "");
+    print_data(52, 20, color, bgcolor, size, addZeroMin + String(min), "");
+    print_data(84, 20, color, bgcolor, size, ampm, "");
 }
 
-void print_date(int x_pos, int y_pos, int color, int size, int month, int day, int year)
+void print_date(int x_pos, int y_pos, int color, int bgcolor, int size, int month, int day, int year)
 {
 
     int16_t x1, y1;
@@ -284,15 +311,15 @@ void print_date(int x_pos, int y_pos, int color, int size, int month, int day, i
     String fullYear = intMonthToText(month + 1) + " " + String(day) + ", " + String(year + 1900);
     tft.setTextSize(size);
     tft.getTextBounds(fullYear.c_str(), x_pos, y_pos, &x1, &y1, &w, &h);
-    print_data((tft.width() - w) / 2, y_pos, color, size, fullYear, "");
+    print_data((tft.width() - w) / 2, y_pos, color, bgcolor, size, fullYear, "");
 }
 
-void print_data(int x_pos, int y_pos, int color, int size, String data, char *units)
+void print_data(int x_pos, int y_pos, int color, int bgcolor, int size, String data, char *units)
 {
     int16_t x1, y1;
     uint16_t w, h;
     tft.getTextBounds(data.c_str(), x_pos, y_pos, &x1, &y1, &w, &h);
-    tft.fillRect(x1, y1, w, h, ST7735_BLACK);
+    tft.fillRect(x1, y1, w - 1, h - 1, bgcolor);
     tft.setTextSize(size);
     tft.setTextColor(color);
     tft.setCursor(x_pos, y_pos);
