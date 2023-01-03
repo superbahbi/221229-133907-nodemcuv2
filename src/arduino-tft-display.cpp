@@ -7,6 +7,7 @@
 #include <Adafruit_ST7735.h>
 #include <time.h>
 #include <Arduino_JSON.h>
+#include "DHT.h"
 
 #include "../lib/config.h"
 #include "../lib/size.h"
@@ -29,10 +30,21 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 String jsonBuffer;
 JSONVar weather_data;
 String serverPath = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey + "&units=" + units;
+
+// Initialize DHT sensor
+DHT dht(DHTPIN, DHTTYPE);
+// Variables to hold sensor readings
+float temperature;
+float humudity;
+
 int i = 0;
 void setup(void)
 {
     Serial.begin(9600);
+    dht.begin();
+
+    humudity = dht.readHumidity();
+    temperature = dht.readTemperature();
 
     WiFi.begin(ssid, password);
     Serial.println("\nConnecting");
@@ -44,6 +56,15 @@ void setup(void)
     Serial.println("");
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
+
+    jsonBuffer = httpGETRequest(serverPath.c_str());
+    weather_data = JSON.parse(jsonBuffer);
+
+    if (JSON.typeof(weather_data) == "undefined")
+    {
+        Serial.println("Parsing input failed!");
+        return;
+    }
 
     tft.initR(INITR_144GREENTAB);
     tft.fillScreen(BLACK);
@@ -72,6 +93,9 @@ void loop()
     }
     if ((millis() - lastTime) > timerDelay) // loop thru every 60 seconds
     {
+        humudity = dht.readHumidity();
+        temperature = dht.readTemperature();
+
         if (WiFi.status() == WL_CONNECTED)
         {
             jsonBuffer = httpGETRequest(serverPath.c_str());
@@ -82,22 +106,21 @@ void loop()
                 Serial.println("Parsing input failed!");
                 return;
             }
-
             // Outside temp data
             String out_temp = JSON.stringify(int(weather_data["main"]["temp"]));
             print_data(55, 55, WHITE, FIREBRICK, size::small, out_temp, "F");
 
             // Outside temp data
-            String in_temp = JSON.stringify(int("99"));
-            print_data(70, 55, WHITE, FIREBRICK, size::small, in_temp, "F");
+            String in_temp = JSON.stringify(int(temperature * 9 / 5 + 32));
+            print_data(55, 70, WHITE, DARKGOLDENROD, size::small, in_temp, "F");
 
             // Humid data
-            String humid = JSON.stringify(weather_data["main"]["humidity"]);
-            print_data(95, 70, WHITE, PURPLE, size::small, humid, "%");
+            String humid = JSON.stringify(int(humudity));
+            print_data(95, 67, WHITE, PURPLE, size::small, humid, "%");
 
             // Sattelites data
             String sattelite = "#27";
-            print_data(5, 100, WHITE, MAGENTA, size::small, sattelite, "");
+            print_data(5, 97, WHITE, MAGENTA, size::small, sattelite, "");
 
             // Longitude data
             String lon = JSON.stringify(weather_data["coord"]["lon"]);
@@ -106,6 +129,10 @@ void loop()
             // Latitude data
             String lat = JSON.stringify(weather_data["coord"]["lat"]);
             print_data(30, 100, WHITE, BLUE, size::small, lat, "");
+
+            // Wifi data
+            String wifi = JSON.stringify(WiFi.RSSI());
+            print_data(85, 85, WHITE, BROWN, size::small, wifi, "dBm");
             lastTime = millis();
         }
         else
@@ -119,10 +146,6 @@ void loop()
     print_time(20, 20, WHITE, BLACK, size::medium, tm.tm_hour, tm.tm_min, tm.tm_sec);
     // Date data
     print_date(15, 38, WHITE, BLACK, size::small, tm.tm_mon, tm.tm_mday, tm.tm_year);
-
-    // Wifi data
-    String wifi = JSON.stringify(WiFi.RSSI());
-    print_data(85, 85, WHITE, BROWN, size::small, wifi, "dBm");
 
     // Battery loading test animation
     tft.fillRect(2 + (i * 8), 112, 6, 14, FORESTGREEN);
@@ -150,7 +173,7 @@ void print_labels()
     // Outside temp label
     tft.setTextColor(WHITE);
     tft.setCursor(5, 70);
-    tft.println("INSIDE: ??F");
+    tft.println("INSIDE: ");
 
     // Humidity label
     tft.setTextColor(WHITE);
